@@ -1,0 +1,123 @@
+---
+title: "Data wrangling and Analyses"
+author: "Laura Segura Hernández"
+date: "10/22/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = "C:/Users/laus1/OneDrive - University of Nebraska-Lincoln/UNL/PhD Tesis/Methods/Metabolomics/Metabolomics-processing-and-analyses/")
+getwd()
+```
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(purrr)
+```
+
+
+# Calling data
+```{r}
+dat<-read.csv("Data/LSH_GCMS_Metabolites_Report_20221021.csv")
+
+data <- dat %>% 
+  select(5, 19:30)
+```
+
+# Estimating averages per group
+```{r}
+# acclimated females
+af<- data %>%
+  select(1:4) %>%
+  rename(metabolite=Metabolite.name) %>%
+  rowwise () %>%
+  mutate(
+    mean=mean(c_across(c("A", "B", "C")), na.rm=T), #average
+    sd=sd(c_across(c("A", "B", "C")), na.rm=T), #standard deviation
+    se=sd/sqrt(3), #standard error,
+    sex="female",
+    treatment="acclimated"
+  )
+
+#room females  
+rf<- data %>%
+  select(1,5:7) %>%
+  rename(metabolite=Metabolite.name) %>%
+  rowwise () %>%
+  mutate(
+    mean=mean(c_across(c("D", "E", "F")), na.rm=T), #average
+    sd=sd(c_across(c("D", "E", "F")), na.rm=T), #standard deviation
+    se=sd/sqrt(3), #standard error
+    sex="female",
+    treatment="non-acclimated"
+ 
+     )
+
+# acclimated males
+am<- data %>%
+  select(1,8:10) %>%
+  rename(metabolite=Metabolite.name) %>%
+  rowwise () %>%
+  mutate(
+    mean=mean(c_across(c("G", "H", "I")), na.rm=T), #average
+    sd=sd(c_across(c("G", "H", "I")), na.rm=T), #standard deviation
+    se=sd/sqrt(3), #standard error
+    sex="male",
+    treatment="acclimated"
+  )
+
+# room males
+rm<- data %>%
+  select(1,1:13) %>%
+  rename(metabolite=Metabolite.name) %>%
+  rowwise () %>%
+  mutate(
+    mean=mean(c_across(c("J", "K", "L")), na.rm=T), #average
+    sd=sd(c_across(c("J", "K", "L")), na.rm=T), #standard deviation
+    se=sd/sqrt(3), #standard error
+    sex="male",
+    treatment="non-acclimated"
+  )
+
+af2<-af%>%select(metabolite, mean, sd,se,sex,treatment)
+rf2<-rf%>%select(metabolite, mean, sd,se,sex,treatment)
+am2<-am%>%select(metabolite, mean, sd,se,sex,treatment)
+rm2<-rm%>%select(metabolite, mean, sd,se,sex,treatment)
+
+data2<-bind_rows(af2, rf2, am2, rm2)
+```
+
+# Plotting data
+
+```{r}
+data2$lwr<-data2$mean-data2$se
+data2$upr<-data2$mean+data2$se
+
+
+dat_list<-split(data2, data2$metabolite)
+
+metabplots=function(data){
+  metab<-data[1,1]
+plotm<-ggplot(data, aes(x = sex, color=treatment))+ 
+  geom_point(aes(y = mean), size = 2, width=0.2) + 
+  geom_errorbar(aes(ymin = lwr, ymax = upr),  width=0.2) + theme_classic()+ theme(text = element_text(size = 15))+ 
+  xlab("Sex")+
+  ylab("Relative abundance")
+mypath <- file.path("Outputs/Metabolites plots/") #creating name and path for the plot
+ggsave(filename=paste0(metab, ".jpg"),
+  plot = last_plot(),
+  device = "jpeg",
+  path = mypath,
+  scale = 1,
+  width = 7,
+  height = 7,
+  units = c("in"),
+  dpi = 300,
+  limitsize = TRUE)
+}
+
+map(dat_list, metabplots) #created plot for each metabolite
+```
+
